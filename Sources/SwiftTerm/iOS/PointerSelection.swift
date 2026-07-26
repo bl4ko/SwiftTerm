@@ -8,11 +8,12 @@
 import UIKit
 
 extension TerminalView {
-    /// Anchors a pointer selection at the given point without activating it;
-    /// the selection becomes active on the first `extendPointerSelection` call.
+    /// Anchors an empty selection at the given point, ready to be extended.
     public func startPointerSelection (at point: CGPoint) {
         let hit = calculateTapHit(point: point).grid
         selection.setSoftStart(bufferPosition: hit)
+        // pivotExtend is a no-op without a pivot, and setSoftStart leaves it nil.
+        selection.pivot = hit
     }
 
     /// Extends the pointer selection to the given point, activating it if needed.
@@ -28,6 +29,7 @@ extension TerminalView {
         let hit = calculateTapHit(point: point).grid
         selection.selectWordOrExpression(at: hit, in: terminal.displayBuffer)
         selection.selectionMode = .character
+        selection.pivot = selection.start
         enableSelectionPanGesture()
         queuePendingDisplay()
     }
@@ -36,6 +38,7 @@ extension TerminalView {
     public func selectRow (at point: CGPoint) {
         let hit = calculateTapHit(point: point).grid
         selection.select(row: hit.row)
+        selection.pivot = selection.start
         enableSelectionPanGesture()
         queuePendingDisplay()
     }
