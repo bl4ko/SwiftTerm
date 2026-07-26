@@ -40,6 +40,13 @@ extension TerminalView {
         queuePendingDisplay()
     }
 
+    /// True while SwiftTerm's own selection pan gesture is armed, which happens
+    /// once a selection is made by touch. Hosts that install their own pan
+    /// gesture use this to yield the drag to selection adjustment.
+    public var selectionPanActive: Bool {
+        panSelectionGesture != nil
+    }
+
     /// Clears any active selection.
     public func clearSelection () {
         selection.selectNone()
