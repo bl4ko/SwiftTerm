@@ -9,11 +9,14 @@ import UIKit
 
 extension TerminalView {
     /// Anchors an empty selection at the given point, ready to be extended.
-    public func startPointerSelection (at point: CGPoint) {
+    /// A rectangular selection covers only the columns between its corners,
+    /// which is how text is pulled out of one column of a split screen.
+    public func startPointerSelection (at point: CGPoint, rectangular: Bool = false) {
         let hit = calculateTapHit(point: point).grid
         selection.setSoftStart(bufferPosition: hit)
         // pivotExtend is a no-op without a pivot, and setSoftStart leaves it nil.
         selection.pivot = hit
+        selection.rectangular = rectangular
     }
 
     /// Extends the pointer selection to the given point, activating it if needed.

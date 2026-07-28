@@ -843,6 +843,15 @@ extension TerminalView {
         let startCol = selection.start.col
         let endCol = selection.end.col
 
+        if selection.rectangular {
+            guard row >= min(startRow, endRow) && row <= max(startRow, endRow) else {
+                return nil
+            }
+            let left = max(0, min(min(startCol, endCol), cols))
+            let right = max(left, min(max(startCol, endCol), cols))
+            return left == right ? nil : left..<right
+        }
+
         var selectionRange: NSRange = .empty
 
         // single row

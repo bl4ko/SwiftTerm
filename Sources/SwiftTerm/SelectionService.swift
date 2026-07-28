@@ -302,6 +302,11 @@ class SelectionService: CustomDebugStringConvertible {
     }
     
     public var selectionMode: SelectionMode = .character
+
+    /// When set, the selection covers the column range between start and end on
+    /// every row it spans, rather than flowing from start to end. Useful to pull
+    /// text out of a single column of a split screen.
+    public var rectangular: Bool = false
     
     /**
      * Selectss the specified row and triggers the selection
@@ -530,14 +535,24 @@ class SelectionService: CustomDebugStringConvertible {
         if active {
             active = false
             selectionMode = .character
+            rectangular = false
         }
     }
-    
+
     public func getSelectedText () -> String {
         let (min, max) = if Position.compare(start, end) == .before {
             (start, end)
         } else {
             (end, start)
+        }
+        if rectangular {
+            let buffer = terminal.displayBuffer
+            let left = Swift.min(start.col, end.col)
+            let right = Swift.max(start.col, end.col)
+            return (min.row...max.row)
+                .filter { $0 >= 0 && $0 < buffer.lines.count }
+                .map { terminal.translateBufferLineToString(buffer: buffer, line: $0, start: left, end: right) }
+                .joined(separator: "\n")
         }
         let r = terminal.getDisplayText(start: min, end: max)
         return r
