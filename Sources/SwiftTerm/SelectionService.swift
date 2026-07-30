@@ -303,6 +303,24 @@ class SelectionService: CustomDebugStringConvertible {
     
     public var selectionMode: SelectionMode = .character
 
+    func hasVisibleVerticalDivider () -> Bool {
+        let buffer = terminal.displayBuffer
+        let startRow = buffer.yDisp
+        let endRow = min(buffer.lines.count, startRow + terminal.rows)
+        guard endRow - startRow >= 3 else { return false }
+        let threshold = max(3, (endRow - startRow) / 2)
+        for col in 1..<max(1, terminal.cols - 1) {
+            let matches = (startRow..<endRow).reduce(into: 0) { count, row in
+                let cell = buffer.getChar(atBufferRelative: Position(col: col, row: row))
+                if "│┃║".contains(terminal.getCharacter(for: cell)) {
+                    count += 1
+                }
+            }
+            if matches >= threshold { return true }
+        }
+        return false
+    }
+
     /// When set, the selection covers the column range between start and end on
     /// every row it spans, rather than flowing from start to end. Useful to pull
     /// text out of a single column of a split screen.
