@@ -16,7 +16,7 @@ extension TerminalView {
         selection.setSoftStart(bufferPosition: hit)
         // pivotExtend is a no-op without a pivot, and setSoftStart leaves it nil.
         selection.pivot = hit
-        selection.rectangular = rectangular
+        selection.rectangular = rectangular || selection.hasVisibleVerticalDivider()
     }
 
     /// Extends the pointer selection to the given point, activating it if needed.

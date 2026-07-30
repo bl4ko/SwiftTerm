@@ -222,6 +222,28 @@ final class SelectionTests: TerminalDelegate {
         #expect(selection.end.row == 2)
     }
 
+    @Test func testRectangularSelectionStaysWithinColumns() {
+        let terminal = Terminal(delegate: self, options: TerminalOptions(cols: 12, rows: 3))
+        let selection = SelectionService(terminal: terminal)
+        terminal.feed(text: "left|one\r\nleft|two\r\nleft|six")
+
+        selection.rectangular = true
+        selection.setSelection(
+            start: Position(col: 5, row: 0),
+            end: Position(col: 8, row: 2)
+        )
+
+        #expect(selection.getSelectedText() == "one\ntwo\nsix")
+    }
+
+    @Test func testDetectsTmuxVerticalDivider() {
+        let terminal = Terminal(delegate: self, options: TerminalOptions(cols: 12, rows: 3))
+        let selection = SelectionService(terminal: terminal)
+        terminal.feed(text: "left│one\r\nleft│two\r\nleft│six")
+
+        #expect(selection.hasVisibleVerticalDivider())
+    }
+
     /// Test shift extend can swap start and end
     /// From Ghostty: "Selection: adjust left/right"
     @Test func testShiftExtendSwapsWhenNeeded() {
