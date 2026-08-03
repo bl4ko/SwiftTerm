@@ -3,16 +3,16 @@
 //
 //  Decides when the caret may follow the terminal cursor.
 //
-//  tmux redraws show the cursor (CSI ?25h) *before* parking it at its final
-//  position, so a read boundary inside that window leaves the buffer cursor
-//  visible mid-screen until the rest of the burst arrives. Keying on row
-//  stability cannot fix this: every scroll moves the true cursor's absolute
-//  row, while each redraw parks the walking cursor on the same cell, so the
-//  wrong position is the one that looks stable. Instead the gate keys on the
-//  viewport row and on stream quiescence: a caret that kept its viewport row
-//  follows immediately (typing stays live), and a row change only commits
-//  once no bytes have arrived for `settleDelay` - a screen nothing is writing
-//  to is a finished screen.
+//  A TUI under load writes its repaint in pieces with pauses between them, and
+//  the cursor is legitimately visible mid-screen between the pieces - tmux
+//  relays the pane cursor honestly, so the protocol alone cannot distinguish a
+//  half-finished frame from a finished one. The reliable tell is *how* the
+//  cursor got where it is: a finished frame parks the cursor with explicit
+//  addressing (CUP), while a mid-frame piece leaves it wherever text output,
+//  newlines, or erases dragged it. The gate therefore commits a row change
+//  immediately when the position was explicitly addressed, and otherwise only
+//  after the stream has been quiet long enough to rule out a mid-frame pause.
+//  Moves within the committed row (typing) always commit at once.
 //
 
 import Foundation
@@ -23,19 +23,20 @@ struct CaretSettleGate {
         case wait(TimeInterval)
     }
 
-    /// How long the input stream must stay quiet before a row change commits.
+    /// Quiet time required before an unaddressed row change commits.
     var settleDelay: TimeInterval
 
     private var committedRow: Int?
 
-    init(settleDelay: TimeInterval = 0.05) {
+    init(settleDelay: TimeInterval = 0.25) {
         self.settleDelay = settleDelay
     }
 
     /// Called for every cursor update. `row` is the viewport-relative cursor row,
+    /// `addressed` whether the position came from explicit cursor addressing,
     /// `lastFeed` the time the last input bytes arrived.
-    mutating func evaluate(row: Int, lastFeed: TimeInterval, now: TimeInterval) -> Decision {
-        if committedRow == nil || row == committedRow {
+    mutating func evaluate(row: Int, addressed: Bool, lastFeed: TimeInterval, now: TimeInterval) -> Decision {
+        if committedRow == nil || row == committedRow || addressed {
             committedRow = row
             return .commit
         }

@@ -367,6 +367,9 @@ open class Terminal {
     // reset() will do that again
     var sendFocus: Bool = false
     var cursorHidden : Bool = false
+    /// True while the cursor position was last set by explicit addressing (CUP):
+    /// a finished redraw parks the cursor this way, organic movement clears it.
+    var cursorAddressed: Bool = false
     
     /// Controls the origin mode (DECOM), when set, the screen is limited to the top and bottom margins
     var originMode: Bool = false
@@ -1166,6 +1169,7 @@ open class Terminal {
     
     func handlePrint (_ data: ArraySlice<UInt8>)
     {
+        cursorAddressed = false
         let buffer = self.buffer
 
         // Fast path: all-ASCII, no charset remapping, no pending partial UTF-8
@@ -1520,6 +1524,7 @@ open class Terminal {
     
     func cmdLineFeedBasic ()
     {
+        cursorAddressed = false
         let buffer = self.buffer
         let by = buffer.y
         
@@ -1551,6 +1556,7 @@ open class Terminal {
     //
     func cmdBackspace ()
     {
+        cursorAddressed = false
         let buffer = self.buffer
         restrictCursor(!reverseWraparound)
         
@@ -1594,6 +1600,7 @@ open class Terminal {
     
     func cmdCarriageReturn ()
     {
+        cursorAddressed = false
         let buffer = self.buffer
         if marginMode {
             if buffer.x < buffer.marginLeft {
@@ -1611,6 +1618,7 @@ open class Terminal {
     //
     func cmdTab ()
     {
+        cursorAddressed = false
         buffer.x = buffer.nextTabStop (marginMode: marginMode)
     }
 
@@ -2025,6 +2033,7 @@ open class Terminal {
     //
     func cmdNextLine ()
     {
+        cursorAddressed = false
         buffer.x = usingMargins () ? buffer.marginLeft : 0
         cmdIndex ()
     }
@@ -2068,6 +2077,7 @@ open class Terminal {
     //
     func cmdCursorUp (_ pars: [Int], _ collect: cstring)
     {
+        cursorAddressed = false
         let param = max (pars.count > 0 ? pars [0] : 1, 1)
         let buffer = self.buffer
         var top = buffer.scrollTop
@@ -2088,6 +2098,7 @@ open class Terminal {
     //
     func cmdCursorDown (_ pars: [Int], _ collect: cstring)
     {
+        cursorAddressed = false
         let buffer = self.buffer
         let param = max (pars.count > 0 ? pars [0] : 1, 1)
         
@@ -2116,6 +2127,7 @@ open class Terminal {
     //
     func cmdCursorForward (_ pars: [Int], _ collect: cstring)
     {
+        cursorAddressed = false
         cursorForward(count: pars.count > 0 ? pars [0] : 1)
     }
     
@@ -2139,6 +2151,7 @@ open class Terminal {
     //
     func cmdCursorBackward (_ pars: [Int], _ collect: cstring)
     {
+        cursorAddressed = false
         cursorBackward(count: pars.count > 0 ? pars [0] : 1)
     }
     
@@ -2167,6 +2180,7 @@ open class Terminal {
     //
     func cmdCursorForwardTab (_ pars: [Int], _ collect: cstring)
     {
+        cursorAddressed = false
         let param = min (cols-1, max (pars.count > 0 ? pars [0] : 1, 1))
         for _ in 0..<param {
             buffer.x = buffer.nextTabStop (marginMode: marginMode)
@@ -2209,6 +2223,7 @@ open class Terminal {
             buffer.y = row
         }
         restrictCursor ()
+        cursorAddressed = true
     }
 
     //
@@ -2276,6 +2291,7 @@ open class Terminal {
     //
     func cmdCursorCharAbsolute (_ pars: [Int], _ collect: cstring)
     {
+        cursorAddressed = false
         let buffer = self.buffer
         let param = max (pars.count > 0 ? pars [0] : 1, 1)
 
@@ -2557,6 +2573,7 @@ open class Terminal {
 
     func cmdRestoreCursor (_ pars: [Int], _ collect: cstring)
     {
+        cursorAddressed = false
         // CSI u (no intermediates) = DECRC (Restore Cursor)
         // CSI > Ps u / CSI < u / CSI = Ps u = Kitty keyboard protocol (not cursor commands)
         guard collect.isEmpty else { return }
@@ -4449,6 +4466,7 @@ open class Terminal {
     //
     func cmdLinePosAbsolute (_ pars: [Int], _ collect: cstring)
     {
+        cursorAddressed = false
         let p = max (pars.count == 0 ? 1 : pars [0], 1)
 
         if (p - 1 >= rows) {
@@ -4608,6 +4626,7 @@ open class Terminal {
     //
     func cmdCursorBackwardTab (_ pars: [Int], _ collect: cstring)
     {
+        cursorAddressed = false
         if buffer.x > cols {
             return
         }
@@ -5150,6 +5169,7 @@ open class Terminal {
     // ESC D Index (Index is 0x84) - IND
     func cmdIndex ()
     {
+        cursorAddressed = false
         restrictCursor()
 
         let buffer = self.buffer
@@ -5703,6 +5723,7 @@ open class Terminal {
 
     func reverseIndex ()
     {
+        cursorAddressed = false
         let buffer = self.buffer
         restrictCursor()
 
