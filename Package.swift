@@ -49,7 +49,8 @@ let targets: [Target] = [
     .testTarget(
         name: "SwiftTermTests",
         dependencies: ["SwiftTerm"],
-        path: "Tests/SwiftTermTests"
+        path: "Tests/SwiftTermTests",
+        resources: [.copy("Resources")]
     )
 ]
 #else
@@ -110,7 +111,8 @@ let targets: [Target] = [
     .testTarget(
         name: "SwiftTermTests",
         dependencies: ["SwiftTerm"],
-        path: "Tests/SwiftTermTests"
+        path: "Tests/SwiftTermTests",
+        resources: [.copy("Resources")]
     )
 ] + benchmarkTargets
 #endif

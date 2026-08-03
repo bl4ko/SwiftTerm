@@ -1959,7 +1959,10 @@ extension TerminalView {
         caretSettleTimer?.invalidate()
         caretSettleTimer = nil
         let viewportRow = vy - buffer.yDisp
-        switch caretSettleGate.evaluate(row: viewportRow, lastFeed: caretLastFeed, now: CACurrentMediaTime()) {
+        switch caretSettleGate.evaluate(
+            row: viewportRow, addressed: terminal.cursorAddressed,
+            lastFeed: caretLastFeed, now: CACurrentMediaTime())
+        {
         case .commit:
             // Only restore what this gate hid; the Metal renderer hides the caret too.
             if caretSuppressed {
