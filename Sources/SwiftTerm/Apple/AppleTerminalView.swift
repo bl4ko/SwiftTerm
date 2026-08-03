@@ -1685,7 +1685,8 @@ extension TerminalView {
         #if os(iOS) || os(visionOS)
         caretSettleTimer?.invalidate()
         caretSettleTimer = nil
-        switch caretSettleGate.evaluate(row: vy, now: CACurrentMediaTime()) {
+        let viewportRow = vy - buffer.yDisp
+        switch caretSettleGate.evaluate(row: viewportRow, lastFeed: caretLastFeed, now: CACurrentMediaTime()) {
         case .commit:
             // Only restore what this gate hid; the Metal renderer hides the caret too.
             if caretSuppressed {
@@ -1694,7 +1695,7 @@ extension TerminalView {
             }
         case .wait(let remaining):
             // The screen is mid-repaint: leave the caret off rather than paint it
-            // wherever the repaint has reached, and look again once the row holds.
+            // wherever the repaint has reached, and look again once the stream quiets.
             if !caretSuppressed {
                 caretSuppressed = true
                 caretView.isHidden = true
@@ -1941,6 +1942,9 @@ extension TerminalView {
     
     func feedFinish ()
     {
+        #if os(iOS) || os(visionOS)
+        caretLastFeed = CACurrentMediaTime()
+        #endif
         suspendDisplayUpdates ()
         queuePendingDisplay()
     }
