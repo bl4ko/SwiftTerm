@@ -3,13 +3,16 @@
 //
 //  Decides when the caret may follow the terminal cursor.
 //
-//  A repaint walks the cursor across the screen before parking it at its final
-//  spot. When the repaint arrives split across reads - routine over SSH, where a
-//  burst straddles TCP segments - the terminal paints a half-finished frame and
-//  the caret would otherwise render wherever the paint happened to be, for as
-//  long as the rest takes to arrive. The caret only belongs on a settled screen,
-//  so a move to a different row has to hold that row briefly before it commits;
-//  moves within the committed row (typed characters) commit at once.
+//  tmux redraws show the cursor (CSI ?25h) *before* parking it at its final
+//  position, so a read boundary inside that window leaves the buffer cursor
+//  visible mid-screen until the rest of the burst arrives. Keying on row
+//  stability cannot fix this: every scroll moves the true cursor's absolute
+//  row, while each redraw parks the walking cursor on the same cell, so the
+//  wrong position is the one that looks stable. Instead the gate keys on the
+//  viewport row and on stream quiescence: a caret that kept its viewport row
+//  follows immediately (typing stays live), and a row change only commits
+//  once no bytes have arrived for `settleDelay` - a screen nothing is writing
+//  to is a finished screen.
 //
 
 import Foundation
@@ -20,40 +23,32 @@ struct CaretSettleGate {
         case wait(TimeInterval)
     }
 
-    /// How long a new row must persist before the caret follows it.
+    /// How long the input stream must stay quiet before a row change commits.
     var settleDelay: TimeInterval
 
     private var committedRow: Int?
-    private var pendingRow: Int?
-    private var pendingSince: TimeInterval = 0
 
-    init(settleDelay: TimeInterval = 0.12) {
+    init(settleDelay: TimeInterval = 0.05) {
         self.settleDelay = settleDelay
     }
 
-    /// Called for every cursor update. `row` is the absolute buffer row.
-    mutating func evaluate(row: Int, now: TimeInterval) -> Decision {
+    /// Called for every cursor update. `row` is the viewport-relative cursor row,
+    /// `lastFeed` the time the last input bytes arrived.
+    mutating func evaluate(row: Int, lastFeed: TimeInterval, now: TimeInterval) -> Decision {
         if committedRow == nil || row == committedRow {
             committedRow = row
-            pendingRow = nil
             return .commit
         }
-        if pendingRow != row {
-            pendingRow = row
-            pendingSince = now
-        }
-        let waited = now - pendingSince
-        if waited >= settleDelay {
+        let idle = now - lastFeed
+        if idle >= settleDelay {
             committedRow = row
-            pendingRow = nil
             return .commit
         }
-        return .wait(settleDelay - waited)
+        return .wait(settleDelay - idle)
     }
 
-    /// Drops any pending row, so the next evaluation commits immediately.
+    /// Drops the committed row, so the next evaluation commits immediately.
     mutating func reset() {
         committedRow = nil
-        pendingRow = nil
     }
 }
