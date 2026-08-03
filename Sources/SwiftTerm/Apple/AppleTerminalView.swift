@@ -1955,6 +1955,30 @@ extension TerminalView {
         } else if terminal.cursorHidden == true && caretView.superview == self {
             caretView.removeFromSuperview()
         }
+        #if os(iOS) || os(visionOS)
+        caretSettleTimer?.invalidate()
+        caretSettleTimer = nil
+        switch caretSettleGate.evaluate(row: vy, now: CACurrentMediaTime()) {
+        case .commit:
+            // Only restore what this gate hid; the Metal renderer hides the caret too.
+            if caretSuppressed {
+                caretSuppressed = false
+                caretView.isHidden = false
+            }
+        case .wait(let remaining):
+            // The screen is mid-repaint: leave the caret off rather than paint it
+            // wherever the repaint has reached, and look again once the row holds.
+            if !caretSuppressed {
+                caretSuppressed = true
+                caretView.isHidden = true
+            }
+            caretSettleTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) {
+                [weak self] _ in
+                self?.updateCursorPosition()
+            }
+            return
+        }
+        #endif
         let doublePosition = buffer.lines [vy].renderMode == .single ? 1.0 : 2.0
         #if os(iOS) || os(visionOS)
         let offset = (cellDimension.height * (CGFloat(buffer.y+(buffer.yBase))))
