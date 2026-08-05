@@ -103,14 +103,6 @@ extension TerminalView {
         selectionHandleGrabState = nil
     }
 
-    /// Clears any active selection.
-    public func clearSelection () {
-        selection.selectNone()
-        endSelectionHandleDrag()
-        disableSelectionPanGesture()
-        queuePendingDisplay()
-    }
-
     /// Disables system inline predictions, which otherwise install a marked-text
     /// range that swallows the first hardware key press after certain characters.
     @available(iOS 17.0, macCatalyst 17.0, *)

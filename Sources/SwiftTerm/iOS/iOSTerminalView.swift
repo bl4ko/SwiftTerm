@@ -1370,6 +1370,9 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     /// system (where `selectNone` would otherwise come from).
     public func clearSelection() {
         selection?.selectNone()
+        endSelectionHandleDrag()
+        disableSelectionPanGesture()
+        queuePendingDisplay()
     }
 
     /// Programmatically presents SwiftTerm's standard Copy / Paste /
