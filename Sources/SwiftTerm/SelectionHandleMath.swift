@@ -59,12 +59,13 @@ public enum SelectionHandleMath {
                              slop: CGFloat = 30) -> SelectionHandleGrab?
     {
         guard cellWidth > 0, cellHeight > 0 else { return nil }
-        // The start handle hangs below the start cell, the end handle sits on
-        // top of the end cell, mirroring how drawSelectionHandle places them.
+        // drawSelectionHandle puts the start handle circle above the top of the
+        // start cell and the end handle circle below the bottom of the end cell
+        // (the end column is exclusive, so that is just past the last glyph).
         let startAnchor = CGPoint (x: CGFloat (start.col) * cellWidth,
-                                   y: CGFloat (start.row + 1) * cellHeight)
+                                   y: CGFloat (start.row) * cellHeight)
         let endAnchor = CGPoint (x: CGFloat (end.col) * cellWidth,
-                                 y: CGFloat (end.row) * cellHeight)
+                                 y: CGFloat (end.row + 1) * cellHeight)
         let startDistance = hypot (point.x - startAnchor.x, point.y - startAnchor.y)
         let endDistance = hypot (point.x - endAnchor.x, point.y - endAnchor.y)
         guard min (startDistance, endDistance) <= slop else { return nil }
