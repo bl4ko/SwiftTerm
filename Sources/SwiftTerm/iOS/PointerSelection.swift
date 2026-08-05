@@ -19,10 +19,14 @@ extension TerminalView {
         selection.rectangular = rectangular || selection.hasVisibleVerticalDivider()
     }
 
-    /// Extends the pointer selection to the given point, activating it if needed.
+    /// Extends the pointer selection to the given point, activating it if
+    /// needed. Includes both the anchor cell and the cell under the pointer;
+    /// raw pivotExtend drops the anchor character on backward drags.
     public func extendPointerSelection (to point: CGPoint) {
+        guard let pivot = selection.pivot else { return }
         let hit = calculateTapHit(point: point).grid
-        selection.pivotExtend(bufferPosition: hit)
+        let span = PointerSelectionMath.span (pivot: pivot, hit: hit, cols: terminal.cols)
+        selection.setSelection (start: span.start, end: span.end)
         enableSelectionPanGesture()
         queuePendingDisplay()
     }
@@ -58,7 +62,7 @@ extension TerminalView {
     /// the drag moves; the touch-to-handle offset is remembered so the edge
     /// tracks the finger relative to where it was grabbed.
     @discardableResult
-    public func grabSelectionHandle (at point: CGPoint) -> Bool {
+    public func grabSelectionHandle (at point: CGPoint, slop: CGFloat = 30) -> Bool {
         guard selection.active else {
             selectionHandleGrabState = nil
             return false
@@ -68,7 +72,8 @@ extension TerminalView {
             : (selection.start, selection.end)
         guard let grab = SelectionHandleMath.grab (point: point, start: first, end: last,
                                                    cellWidth: cellDimension.width,
-                                                   cellHeight: cellDimension.height)
+                                                   cellHeight: cellDimension.height,
+                                                   slop: slop)
         else {
             selectionHandleGrabState = nil
             return false

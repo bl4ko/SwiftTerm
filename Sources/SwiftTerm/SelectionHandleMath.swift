@@ -25,6 +25,25 @@ public struct SelectionHandleGrab: Equatable {
     }
 }
 
+public enum PointerSelectionMath {
+    /// Returns the (start, end) span for a pointer drag anchored at `pivot`
+    /// reaching `hit`, in the exclusive-end convention used by rendering and
+    /// copy. Both the anchor cell and the cell under the pointer are included,
+    /// whichever direction the drag goes — an exclusive raw end drops the
+    /// anchor character on every backward drag.
+    public static func span (pivot: Position, hit: Position, cols: Int) -> (start: Position, end: Position) {
+        func next (_ p: Position) -> Position {
+            p.col >= cols - 1 ? Position (col: cols - 1, row: p.row) : Position (col: p.col + 1, row: p.row)
+        }
+        switch Position.compare (hit, pivot) {
+        case .after, .equal:
+            return (pivot, next (hit))
+        case .before:
+            return (hit, next (pivot))
+        }
+    }
+}
+
 public enum SelectionHandleMath {
     /// Returns the handle grabbed by a touch at `point`, or nil when the touch
     /// is not close enough to either handle.
