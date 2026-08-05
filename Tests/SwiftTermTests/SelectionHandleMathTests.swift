@@ -53,3 +53,41 @@ final class SelectionHandleMathTests: XCTestCase {
                                               cellWidth: 0, cellHeight: 0))
     }
 }
+
+final class PointerSelectionMathTests: XCTestCase {
+    let cols = 80
+
+    func testForwardDragIncludesCellUnderPointer () {
+        let span = PointerSelectionMath.span(pivot: Position(col: 5, row: 3),
+                                             hit: Position(col: 9, row: 3), cols: cols)
+        XCTAssertEqual(span.start, Position(col: 5, row: 3))
+        XCTAssertEqual(span.end, Position(col: 10, row: 3))
+    }
+
+    func testBackwardDragIncludesAnchorCell () {
+        let span = PointerSelectionMath.span(pivot: Position(col: 9, row: 3),
+                                             hit: Position(col: 5, row: 3), cols: cols)
+        XCTAssertEqual(span.start, Position(col: 5, row: 3))
+        XCTAssertEqual(span.end, Position(col: 10, row: 3))
+    }
+
+    func testDragWithinAnchorCellSelectsIt () {
+        let span = PointerSelectionMath.span(pivot: Position(col: 5, row: 3),
+                                             hit: Position(col: 5, row: 3), cols: cols)
+        XCTAssertEqual(span.start, Position(col: 5, row: 3))
+        XCTAssertEqual(span.end, Position(col: 6, row: 3))
+    }
+
+    func testBackwardMultiRowDragIncludesAnchorCell () {
+        let span = PointerSelectionMath.span(pivot: Position(col: 4, row: 6),
+                                             hit: Position(col: 20, row: 2), cols: cols)
+        XCTAssertEqual(span.start, Position(col: 20, row: 2))
+        XCTAssertEqual(span.end, Position(col: 5, row: 6))
+    }
+
+    func testLastColumnClampsInsteadOfWrapping () {
+        let span = PointerSelectionMath.span(pivot: Position(col: 0, row: 1),
+                                             hit: Position(col: 79, row: 1), cols: cols)
+        XCTAssertEqual(span.end, Position(col: 79, row: 1))
+    }
+}
