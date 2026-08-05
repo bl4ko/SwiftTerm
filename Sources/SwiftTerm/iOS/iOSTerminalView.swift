@@ -600,11 +600,14 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     {
          if gestureRecognizer.state == .began {
              let _ = self.becomeFirstResponder()
-             let tapLocation = gestureRecognizer.location(in: gestureRecognizer.view)
-             let tapRegion = makeContextMenuRegionForTap (point: tapLocation)
-             
-             showContextMenu (forRegion: tapRegion,
-                              pos: calculateTapHit (gesture: gestureRecognizer).grid)
+             // Select the word under the finger, like every iOS text view;
+             // the old menu-only behavior left no touch path into selection.
+             let hit = calculateTapHit (gesture: gestureRecognizer).grid
+             selection.selectWordOrExpression (at: hit, in: terminal.displayBuffer)
+             selection.selectionMode = .character
+             enableSelectionPanGesture()
+             showContextMenu (forRegion: makeContextMenuRegionForSelection(), pos: hit)
+             queuePendingDisplay()
           }
     }
     
@@ -909,37 +912,22 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     // The start of the pan operation, for the case where we are not sending the input to the client
     var panStart: Position?
     var panTask: Task<(),Never>?
-    
+    var selectionHandleGrabState: SelectionHandleGrab?
+
     @objc func panSelectionHandler (_ gestureRecognizer: UIPanGestureRecognizer) {
-        func near (_ pos1: Position, _ pos2: Position) -> Bool {
-            return abs (pos1.col-pos2.col) < 3 && abs (pos1.row-pos2.row) < 2
-        }
-        
         switch gestureRecognizer.state {
         case .began:
-            let hit = calculateTapHit(gesture: gestureRecognizer).grid
-            if selection.active {
-                var extend = false
-                if near (selection.start, hit) {
-                    selection.pivot = selection.end
-                    extend = true
-                } else if near (selection.end, hit) {
-                    selection.pivot = selection.start
-                    extend = true
-                }
-                if extend {
-                    selection.pivotExtend(bufferPosition: hit)
-                    requestDisplay()
-                    break
-                }
+            // Grabbing a handle must not move the selection: recomputing an
+            // edge from the fat-finger touch point drops the first character.
+            if selection.active, grabSelectionHandle (at: gestureRecognizer.location (in: self)) {
+                break
             }
-            panStart = hit
+            panStart = calculateTapHit(gesture: gestureRecognizer).grid
         case .changed:
             let absoluteY = gestureRecognizer.location (in: self).y - contentOffset.y
-            let hit = calculateTapHit(gesture: gestureRecognizer).grid
-            if selection.active {
+            if selectionHandleDragActive {
                 stopSelectionTimer()
-                selection.pivotExtend(bufferPosition: hit)
+                dragSelectionHandle (to: gestureRecognizer.location (in: self))
                 gestureRecognizer.setTranslation(CGPoint.zero, in: self)
                 if absoluteY < 0 || absoluteY > bounds.height {
                     startSelectionTimer {
@@ -948,28 +936,29 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
                     }
                 }
                 requestDisplay()
-            } else {
-                if let ps = panStart {
-                    let deltaRow = ps.row - hit.row
-                    if allowMouseReporting {
-                        // TODO: what scenario would have this?
-                        scrollDown (lines: deltaRow)
-                    } else {
-                        let deltaCol = ps.col - hit.col
-                        
-                        sendKey (deltaCol: deltaCol, deltaRow: deltaRow)
-                    }
+            } else if !selection.active, let ps = panStart {
+                let hit = calculateTapHit(gesture: gestureRecognizer).grid
+                let deltaRow = ps.row - hit.row
+                if allowMouseReporting {
+                    // TODO: what scenario would have this?
+                    scrollDown (lines: deltaRow)
+                } else {
+                    let deltaCol = ps.col - hit.col
+
+                    sendKey (deltaCol: deltaCol, deltaRow: deltaRow)
                 }
             }
         case .ended:
             stopSelectionTimer()
-            if selection.active {
+            if selectionHandleDragActive, selection.active {
                 showContextMenu (forRegion: makeContextMenuRegionForSelection(), pos: calculateTapHit(gesture: gestureRecognizer).grid)
             }
-            break
+            endSelectionHandleDrag()
+            panStart = nil
         case .cancelled:
             stopSelectionTimer()
-            selection.active = false
+            endSelectionHandleDrag()
+            panStart = nil
         default:
             break
         }
@@ -2185,6 +2174,11 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     }
     var keyRepeat: Timer?
 
+    /// Delay before a held hardware key starts repeating.
+    public var keyRepeatDelay: TimeInterval = 0.3
+    /// Interval between repeats while a hardware key stays held.
+    public var keyRepeatInterval: TimeInterval = 1.0 / 30.0
+
     private struct PendingKittyKeyEvent {
         let key: UIKey
         let eventType: KittyKeyboardEventType
@@ -2254,8 +2248,8 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
                         didHandleEvent = true
                         keyRepeat?.invalidate()
                         if !isModifierKey {
-                            keyRepeat = Timer(fire: Date(timeInterval: 0.4, since: Date()),
-                                              interval: 0.1,
+                            keyRepeat = Timer(fire: Date(timeInterval: keyRepeatDelay, since: Date()),
+                                              interval: keyRepeatInterval,
                                               repeats: true) { _ in
                                 let repeatEvent = KittyKeyEvent(key: .functional(functionKey),
                                                                 modifiers: modifiers,
@@ -2277,8 +2271,8 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
                         didHandleEvent = true
                         let modifiers = kittyEvent.modifiers
                         keyRepeat?.invalidate()
-                        keyRepeat = Timer(fire: Date(timeInterval: 0.4, since: Date()),
-                                          interval: 0.1,
+                        keyRepeat = Timer(fire: Date(timeInterval: keyRepeatDelay, since: Date()),
+                                          interval: keyRepeatInterval,
                                           repeats: true) { _ in
                             let repeatEvent = KittyKeyEvent(key: kittyEvent.key,
                                                             modifiers: modifiers,
@@ -2428,8 +2422,8 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
             if let sendableData = data {
                 didHandleEvent = true
                 keyRepeat?.invalidate()
-                keyRepeat = Timer (fire: Date(timeInterval: 0.4, since: Date()),
-                                   interval: 0.1,
+                keyRepeat = Timer(fire: Date(timeInterval: keyRepeatDelay, since: Date()),
+                                   interval: keyRepeatInterval,
                                    repeats: true) { timer in
                     self.sendData(data: sendableData)
                 }

@@ -53,9 +53,55 @@ extension TerminalView {
         panSelectionGesture != nil
     }
 
+    /// Arms a selection-handle drag when `point` falls on one of the handles
+    /// of the active selection. The selection itself is left untouched until
+    /// the drag moves; the touch-to-handle offset is remembered so the edge
+    /// tracks the finger relative to where it was grabbed.
+    @discardableResult
+    public func grabSelectionHandle (at point: CGPoint) -> Bool {
+        guard selection.active else {
+            selectionHandleGrabState = nil
+            return false
+        }
+        let (first, last) = Position.compare (selection.start, selection.end) == .after
+            ? (selection.end, selection.start)
+            : (selection.start, selection.end)
+        guard let grab = SelectionHandleMath.grab (point: point, start: first, end: last,
+                                                   cellWidth: cellDimension.width,
+                                                   cellHeight: cellDimension.height)
+        else {
+            selectionHandleGrabState = nil
+            return false
+        }
+        selection.pivot = grab.handle == .start ? last : first
+        selectionHandleGrabState = grab
+        return true
+    }
+
+    /// True from a successful `grabSelectionHandle` until `endSelectionHandleDrag`.
+    public var selectionHandleDragActive: Bool {
+        selectionHandleGrabState != nil
+    }
+
+    /// Moves the grabbed selection handle, keeping the grab offset.
+    public func dragSelectionHandle (to point: CGPoint) {
+        guard let grab = selectionHandleGrabState, selection.active else { return }
+        let hit = calculateTapHit (point: point).grid
+        let target = Position (col: min (max (0, hit.col + grab.colOffset), terminal.cols - 1),
+                               row: max (0, hit.row + grab.rowOffset))
+        selection.pivotExtend (bufferPosition: target)
+        queuePendingDisplay()
+    }
+
+    /// Ends a selection-handle drag.
+    public func endSelectionHandleDrag () {
+        selectionHandleGrabState = nil
+    }
+
     /// Clears any active selection.
     public func clearSelection () {
         selection.selectNone()
+        endSelectionHandleDrag()
         disableSelectionPanGesture()
         queuePendingDisplay()
     }
