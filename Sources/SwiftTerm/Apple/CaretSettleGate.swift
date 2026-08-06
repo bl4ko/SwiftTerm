@@ -36,19 +36,14 @@ struct CaretSettleGate {
     /// `addressed` whether the position came from explicit cursor addressing,
     /// `lastFeed` the time the last input bytes arrived.
     mutating func evaluate(row: Int, addressed: Bool, lastFeed: TimeInterval, now: TimeInterval) -> Decision {
-        if committedRow == nil || row == committedRow || addressed {
+        if addressed || row == committedRow || now - lastFeed >= settleDelay {
             committedRow = row
             return .commit
         }
-        let idle = now - lastFeed
-        if idle >= settleDelay {
-            committedRow = row
-            return .commit
-        }
-        return .wait(settleDelay - idle)
+        return .wait(settleDelay - (now - lastFeed))
     }
 
-    /// Drops the committed row, so the next evaluation commits immediately.
+    /// Drops the committed row, so the next position must settle again.
     mutating func reset() {
         committedRow = nil
     }

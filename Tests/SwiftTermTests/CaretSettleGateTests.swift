@@ -9,14 +9,15 @@ import XCTest
 #if os(iOS) || os(visionOS) || os(macOS)
 
     final class CaretSettleGateTests: XCTestCase {
-        func testFirstPositionCommitsImmediately() {
+        func testFirstUnaddressedPositionMustSettle() {
             var gate = CaretSettleGate(settleDelay: 0.25)
-            XCTAssertEqual(gate.evaluate(row: 20, addressed: false, lastFeed: 1.0, now: 1.0), .commit)
+            XCTAssertEqual(gate.evaluate(row: 20, addressed: false, lastFeed: 1.0, now: 1.0), .wait(0.25))
+            XCTAssertEqual(gate.evaluate(row: 20, addressed: false, lastFeed: 1.0, now: 1.25), .commit)
         }
 
         func testSameRowCommitsDuringActiveStream() {
             var gate = CaretSettleGate(settleDelay: 0.25)
-            _ = gate.evaluate(row: 20, addressed: false, lastFeed: 1.0, now: 1.0)
+            _ = gate.evaluate(row: 20, addressed: true, lastFeed: 1.0, now: 1.0)
             // Typing at the prompt while output streams: row holds, bytes keep arriving.
             XCTAssertEqual(gate.evaluate(row: 20, addressed: false, lastFeed: 1.02, now: 1.02), .commit)
             XCTAssertEqual(gate.evaluate(row: 20, addressed: false, lastFeed: 1.04, now: 1.04), .commit)
@@ -26,7 +27,7 @@ import XCTest
             // A finished redraw parks the cursor with CUP: follow at once, even
             // while bytes are still arriving.
             var gate = CaretSettleGate(settleDelay: 0.25)
-            _ = gate.evaluate(row: 20, addressed: false, lastFeed: 1.0, now: 1.0)
+            _ = gate.evaluate(row: 20, addressed: true, lastFeed: 1.0, now: 1.0)
             XCTAssertEqual(gate.evaluate(row: 45, addressed: true, lastFeed: 1.01, now: 1.01), .commit)
         }
 
@@ -50,24 +51,24 @@ import XCTest
         func testUnaddressedRowChangeCommitsOnceStreamQuiet() {
             // Plain shell Enter: "\r\n" + prompt text, no CUP. Commits after quiet.
             var gate = CaretSettleGate(settleDelay: 0.25)
-            _ = gate.evaluate(row: 20, addressed: false, lastFeed: 1.0, now: 1.0)
+            _ = gate.evaluate(row: 20, addressed: true, lastFeed: 1.0, now: 1.0)
             XCTAssertEqual(gate.evaluate(row: 21, addressed: false, lastFeed: 1.01, now: 1.30), .commit)
         }
 
         func testWaitReportsRemainingQuietTime() {
             var gate = CaretSettleGate(settleDelay: 0.25)
-            _ = gate.evaluate(row: 20, addressed: false, lastFeed: 1.0, now: 1.0)
+            _ = gate.evaluate(row: 20, addressed: true, lastFeed: 1.0, now: 1.0)
             guard case .wait(let remaining) = gate.evaluate(row: 5, addressed: false, lastFeed: 1.0, now: 1.1) else {
                 return XCTFail("expected wait")
             }
             XCTAssertEqual(remaining, 0.15, accuracy: 0.001)
         }
 
-        func testResetMakesTheNextEvaluationCommit() {
+        func testResetMakesTheNextEvaluationSettle() {
             var gate = CaretSettleGate(settleDelay: 0.25)
-            _ = gate.evaluate(row: 20, addressed: false, lastFeed: 1.0, now: 1.0)
+            _ = gate.evaluate(row: 20, addressed: true, lastFeed: 1.0, now: 1.0)
             gate.reset()
-            XCTAssertEqual(gate.evaluate(row: 3, addressed: false, lastFeed: 1.01, now: 1.01), .commit)
+            XCTAssertEqual(gate.evaluate(row: 3, addressed: false, lastFeed: 1.01, now: 1.01), .wait(0.25))
         }
     }
 
