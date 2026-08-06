@@ -1959,8 +1959,10 @@ extension TerminalView {
         caretSettleTimer?.invalidate()
         caretSettleTimer = nil
         let viewportRow = vy - buffer.yDisp
+        // tmux explicitly restores split-pane redraw anchors at column zero;
+        // those are still mid-frame positions, not application cursor parks.
         switch caretSettleGate.evaluate(
-            row: viewportRow, addressed: terminal.cursorAddressed,
+            row: viewportRow, addressed: terminal.cursorAddressed && buffer.x > 0,
             lastFeed: caretLastFeed, now: CACurrentMediaTime())
         {
         case .commit:
