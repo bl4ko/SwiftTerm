@@ -230,7 +230,6 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     var _lineSpacing: CGFloat = 1.0
     var caretSettleGate = CaretSettleGate()
     var caretSettleTimer: Timer?
-    var caretSuppressed = false
     var caretLastFeed: TimeInterval = 0
     var terminal: Terminal!
     private var progressBarView: TerminalProgressBarView?

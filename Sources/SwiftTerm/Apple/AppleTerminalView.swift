@@ -1964,18 +1964,12 @@ extension TerminalView {
             lastFeed: caretLastFeed, now: CACurrentMediaTime())
         {
         case .commit:
-            // Only restore what this gate hid; the Metal renderer hides the caret too.
-            if caretSuppressed {
-                caretSuppressed = false
-                caretView.isHidden = false
-            }
+            break
         case .wait(let remaining):
-            // The screen is mid-repaint: leave the caret off rather than paint it
-            // wherever the repaint has reached, and look again once the stream quiets.
-            if !caretSuppressed {
-                caretSuppressed = true
-                caretView.isHidden = true
-            }
+            // The screen is mid-repaint: leave the caret where the last finished
+            // frame parked it rather than paint it wherever the repaint has
+            // reached - hiding it here instead reads as flicker, because a busy
+            // TUI passes through this path on every repaint piece.
             caretSettleTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) {
                 [weak self] _ in
                 self?.updateCursorPosition()
