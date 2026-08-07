@@ -122,6 +122,14 @@ final class SynchronizedOutputTests {
     // MARK: - View-level regression tests
 
 #if os(macOS)
+    @Test func testCoalescedInputEchoSkipsImmediateDisplay() {
+        let view = TerminalView(frame: CGRect(origin: .zero, size: .init(width: 400, height: 100)))
+        view.recordUserInput()
+        #expect(view.shouldDisplayImmediatelyAfterUserInput())
+        view.coalesceInputEcho = true
+        #expect(!view.shouldDisplayImmediatelyAfterUserInput())
+    }
+
     /// Regression: scrollTo must not be blocked during synchronized output.
     @Test func testViewScrollToDuringSyncIsNotBlocked() {
         let view = TerminalView(frame: CGRect(origin: .zero, size: .init(width: 400, height: 100)))

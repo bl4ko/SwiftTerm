@@ -2260,7 +2260,8 @@ extension TerminalView {
         queuePendingDisplay()
     }
 
-    private func shouldDisplayImmediatelyAfterUserInput() -> Bool {
+    func shouldDisplayImmediatelyAfterUserInput() -> Bool {
+        guard !coalesceInputEcho else { return false }
         guard !terminal.synchronizedOutputActive else { return false }
         let last = loadLastUserInputUptimeNs()
         guard last > 0 else { return false }

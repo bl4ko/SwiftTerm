@@ -204,6 +204,9 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     private var findBarOptions: SearchOptions = SearchOptions()
     var debug: TerminalDebugView?
     var pendingDisplay: Bool = false
+    /// Keep echoed input on the normal display cadence. Useful for multiplexers
+    /// that repaint several panes in separate chunks after every keypress.
+    public var coalesceInputEcho = false
     /// Output received shortly after local input is likely echo or prompt redraw;
     /// render it without the 16.67ms frame-rate throttle so typing feels responsive.
     var lastUserInputUptimeNs: UInt64 = 0
