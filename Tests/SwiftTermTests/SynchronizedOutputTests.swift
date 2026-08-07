@@ -126,7 +126,7 @@ final class SynchronizedOutputTests {
         let view = TerminalView(frame: CGRect(origin: .zero, size: .init(width: 400, height: 100)))
         view.recordUserInput()
         #expect(view.shouldDisplayImmediatelyAfterUserInput())
-        view.coalesceInputEcho = true
+        view.multiplexerMode = true
         #expect(!view.shouldDisplayImmediatelyAfterUserInput())
     }
 

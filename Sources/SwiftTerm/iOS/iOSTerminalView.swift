@@ -199,7 +199,7 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     var pendingDisplay: Bool = false
     /// Keep echoed input on the normal display cadence. Useful for multiplexers
     /// that repaint several panes in separate chunks after every keypress.
-    public var coalesceInputEcho = false
+    public var multiplexerMode = false
     /// Output received shortly after local input is likely echo or prompt redraw;
     /// render it without the 16.67ms frame-rate throttle so typing feels responsive.
     var lastUserInputUptimeNs: UInt64 = 0
