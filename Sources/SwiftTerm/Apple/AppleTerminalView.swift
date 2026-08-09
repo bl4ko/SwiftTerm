@@ -1977,9 +1977,6 @@ extension TerminalView {
             // frame parked it rather than paint it wherever the repaint has
             // reached - hiding it here instead reads as flicker, because a busy
             // TUI passes through this path on every repaint piece.
-            // Multiplexers can stall longer than the fallback delay while
-            // repainting several panes; wait for their explicit final park.
-            guard !multiplexerMode || terminal.cursorHidden else { return }
             caretSettleTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) {
                 [weak self] _ in
                 self?.updateCursorPosition()
