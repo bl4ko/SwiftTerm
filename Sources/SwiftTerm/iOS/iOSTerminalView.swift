@@ -234,6 +234,9 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     var caretSettleGate = CaretSettleGate()
     var caretSettleTimer: Timer?
     var caretLastFeed: TimeInterval = 0
+    /// Multiplexers hide the client cursor while repainting panes; keep the old
+    /// caret until the matching show and final cursor address arrive.
+    var caretHidePending = false
     var terminal: Terminal!
     private var progressBarView: TerminalProgressBarView?
     private var progressReportTimer: Timer?
@@ -2889,6 +2892,7 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     }
     
     open func showCursor(source: Terminal) {
+        guard !multiplexerMode else { return }
         guard let caretView else { return }
         if caretView.superview == nil {
             addSubview(caretView)
@@ -2896,6 +2900,10 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     }
 
     open func hideCursor(source: Terminal) {
+        if multiplexerMode {
+            caretHidePending = true
+            return
+        }
         caretView?.removeFromSuperview()
     }
     

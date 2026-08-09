@@ -31,6 +31,20 @@ import XCTest
             XCTAssertEqual(gate.evaluate(row: 45, addressed: true, lastFeed: 1.01, now: 1.01), .commit)
         }
 
+        func testHideWaitsForQuietButShowCommitsImmediately() {
+            var gate = CaretSettleGate(settleDelay: 0.25)
+            _ = gate.evaluate(row: 20, addressed: true, lastFeed: 1.0, now: 1.0)
+            XCTAssertEqual(
+                gate.evaluate(row: 20, addressed: true, hidden: true, lastFeed: 1.01, now: 1.01),
+                .wait(0.25))
+            XCTAssertEqual(
+                gate.evaluate(row: 20, addressed: true, hidden: true, lastFeed: 1.01, now: 1.26),
+                .commit)
+            XCTAssertEqual(
+                gate.evaluate(row: 20, addressed: true, hidden: false, lastFeed: 1.27, now: 1.27),
+                .commit)
+        }
+
         // A busy TUI writes its repaint in pieces: the mid-frame piece leaves the
         // cursor dragged mid-screen by text and newlines, visible, for ~100ms.
         // Unaddressed row changes must wait out the pause.

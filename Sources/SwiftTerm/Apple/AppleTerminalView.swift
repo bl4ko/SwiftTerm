@@ -1950,10 +1950,6 @@ extension TerminalView {
         if vy >= buffer.yDisp + buffer.rows {
             caretView.removeFromSuperview()
             return
-        } else if terminal.cursorHidden == false && caretView.superview != self {
-            addSubview(caretView)
-        } else if terminal.cursorHidden == true && caretView.superview == self {
-            caretView.removeFromSuperview()
         }
         #if os(iOS) || os(visionOS)
         caretSettleTimer?.invalidate()
@@ -1965,11 +1961,16 @@ extension TerminalView {
         let redrawAnchor =
             buffer.x == 0 || buffer.lines[vy][buffer.x].code == 0x2502
             || buffer.lines[vy][buffer.x - 1].code == 0x2502
+        let restoredAfterHide = caretHidePending && !terminal.cursorHidden
         switch caretSettleGate.evaluate(
-            row: viewportRow, addressed: terminal.cursorAddressed && !redrawAnchor,
-            lastFeed: redrawAnchor ? now : caretLastFeed, now: now)
+            row: viewportRow, addressed: restoredAfterHide || (terminal.cursorAddressed && !redrawAnchor),
+            hidden: terminal.cursorHidden,
+            lastFeed: redrawAnchor && !terminal.cursorHidden ? now : caretLastFeed, now: now)
         {
         case .commit:
+            if restoredAfterHide {
+                caretHidePending = false
+            }
             break
         case .wait(let remaining):
             // The screen is mid-repaint: leave the caret where the last finished
@@ -1978,7 +1979,7 @@ extension TerminalView {
             // TUI passes through this path on every repaint piece.
             // Multiplexers can stall longer than the fallback delay while
             // repainting several panes; wait for their explicit final park.
-            guard !multiplexerMode else { return }
+            guard !multiplexerMode || terminal.cursorHidden else { return }
             caretSettleTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) {
                 [weak self] _ in
                 self?.updateCursorPosition()
@@ -1986,6 +1987,11 @@ extension TerminalView {
             return
         }
         #endif
+        if terminal.cursorHidden == false && caretView.superview != self {
+            addSubview(caretView)
+        } else if terminal.cursorHidden == true && caretView.superview == self {
+            caretView.removeFromSuperview()
+        }
         let doublePosition = buffer.lines [vy].renderMode == .single ? 1.0 : 2.0
         #if os(iOS) || os(visionOS)
         let offset = (cellDimension.height * (CGFloat(buffer.y+(buffer.yBase))))
