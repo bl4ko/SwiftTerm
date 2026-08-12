@@ -275,6 +275,15 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
     // be removed afterwards by the input system (input methods will insert approximiations, mark and change on demand)
     var _markedTextRange: TextRange?
 
+    /// Called whenever the multi-stage input (IME) composition changes.
+    ///
+    /// The first argument is the text being composed, empty once composition ends; the
+    /// second is the selected clause inside it. Marked text is not sent to the terminal
+    /// until it is committed and this view never draws it, so a host that wants the
+    /// usual underlined composition — Korean, Japanese, Chinese input — can render it
+    /// itself at ``caretFrame`` from this callback.
+    public var markedTextObserver: ((String, NSRange) -> Void)?
+
     // The input delegate is part of UITextInput, and we notify it of changes.
     public weak var inputDelegate: UITextInputDelegate?
 

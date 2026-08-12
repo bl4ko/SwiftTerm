@@ -126,6 +126,7 @@ extension TerminalView: UITextInput {
         inputDelegate?.textDidChange(self)
         inputDelegate?.selectionDidChange(self)
         uitiLog("endTextInputEdit \(textInputStateDescription())")
+        notifyMarkedTextChanged()
     }
 
     public func text(in range: UITextRange) -> String? {
@@ -280,6 +281,28 @@ extension TerminalView: UITextInput {
         endTextInputEdit()
     }
 
+    /// Reports the current multi-stage input (IME) composition to ``markedTextObserver``.
+    ///
+    /// Marked text lives only in `textInputStorage` until it is committed, so a terminal
+    /// using this view draws nothing while a Korean, Japanese or Chinese keyboard is
+    /// composing. Hosts that want the usual underlined composition can observe this and
+    /// render it at ``caretFrame``.
+    func notifyMarkedTextChanged() {
+        guard let markedTextObserver else { return }
+        guard let marked = _markedTextRange,
+              let composing = text(in: marked),
+              !composing.isEmpty
+        else {
+            markedTextObserver("", NSRange(location: 0, length: 0))
+            return
+        }
+        let base = marked.startPosition.offset
+        let start = max(0, _selectedTextRange.startPosition.offset - base)
+        let end = max(start, _selectedTextRange.endPosition.offset - base)
+        let length = min(end - start, max(0, composing.textInputUTF16Count - start))
+        markedTextObserver(composing, NSRange(location: start, length: length))
+    }
+
     func resetInputBuffer (_ loc: String = #function)
     {
         uitiLog("resetInputBuffer() from \(loc) \(textInputStateDescription())")
@@ -291,7 +314,7 @@ extension TerminalView: UITextInput {
         _markedTextRange = nil
         endTextInputEdit()
     }
-    
+
     public func unmarkText() {
         uitiLog("unmarkText() \(textInputStateDescription())")
         if let previouslyMarkedRange = _markedTextRange {
@@ -308,7 +331,7 @@ extension TerminalView: UITextInput {
             _selectedTextRange = TextRange(from: rangeEndPosition, to: rangeEndPosition)
             _markedTextRange = nil
             endTextInputEdit()
-        }        
+        }
     }
     
     public var beginningOfDocument: UITextPosition {
