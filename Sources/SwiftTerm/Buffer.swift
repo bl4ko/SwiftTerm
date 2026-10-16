@@ -471,8 +471,10 @@ public final class Buffer {
             } else { // (this._rows >= newRows)
                 for _ in (newRows..<rows).reversed () {
                     if lines.count > newRows + yBase {
-                        if lines.count > yBase + self.y + 1 {
-                            // The line is a blank line below the cursor, remove it
+                        if lines.count > yBase + self.y + 1 || !hasScrollback {
+                            // The line is a blank line below the cursor, remove it.
+                            // Without scrollback (the alternate screen) the top rows would be lost
+                            // either way, so keep them in place for the full-screen app to redraw.
                             lines.pop ()
                         } else {
                             // The line is the cursor, scroll down
